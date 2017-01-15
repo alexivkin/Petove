@@ -1,6 +1,6 @@
 # PeTOVe, a system virtualizer
 
-This set of bash scripts allows you to take a **P**hysical system and convert it **to** a **V**irtual clone, resembing the original as close as possible in all aspects or hardware. That includes processor IDs, motherboard and hard drive serial numbers, MAC and much more.
+This is a bash script that allows you to take a **P**hysical system and convert it **to** a **V**irtual clone, resembing the original as close as possible in all aspects or hardware. That includes processor IDs, motherboard and hard drive serial numbers, MAC and much more.
 Using this script you can create a system that is indistinguishable from the original from Microsoft Windows' and Office's standpoint from the original, thereby avoiding reactivation of these products. It also works on systems that have full disk encryption or other products tied to the hardware, like RSA key generators.
 
 * Requires an ability to boot the original with an exteral usb
