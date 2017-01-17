@@ -63,18 +63,18 @@ echo Creating $config_script.
 echo "#!/bin/bash" > $config_script
 # first create a vm with the same number of processors, same ram, same (total) disk space and a network card, same video card memory
 echo "# Create VM" >> $config_script
-echo "VBoxManage createvm --name $VMname" >> $config_script # Todo add  --ostype <ostype> from VBoxManage list ostypes
+echo "VBoxManage createvm --name \"$VMname\"" >> $config_script # Todo add  --ostype <ostype> from VBoxManage list ostypes
 # Sets the amount of RAM, in MB, CPUs
 memgib=$(sed -nr "/\s*\*-memory/,/size:/s/\s*size:\s*(.*)GiB/\1/ p" lshw-report)
 # parse the lines between  *-cpu and configuration: cores=2 enabledcores=2 threads=4. threads is the number of "cpus" exposed to the os
 threads=$(sed -nr "/\s*\*-cpu/,/configuration:/s/\s*configuration:.*threads=(.*)/\1/ p" lshw-report)
 # todo may need to tweak other settings like PAE/VT-x, NX,CPU architecture, firmware (BIOS/EFI), APIC, HPET, ACPI etc.
-echo "VBoxManage modifyvm -memory $((memgib*1024)) --cpus $threads" >> $config_script
+echo "VBoxManage modifyvm --name \"$VMname\" -memory $((memgib*1024)) --cpus $threads" >> $config_script
 # for disk suze use LBA48 multiplied by 512
 val=$(sed -nr "s/\s*LBA48  user addressable sectors:\s*(.*)/\1/p" hdparm-sda)
-echo "VBoxManage createmedium disk --filename $VMname.vdi --sizebyte $((val*512)) --format VDI --variant Standard"  >> $config_script
-# Network
-val=$(sed -nr "/\s*\*-network/,/serial:/s/\s*serial:\s*(..):(..):(..):(..):(..):(..)/\1\2\3\4\5\6/ p" lshw-report)
+echo "VBoxManage createmedium disk --filename \"$VMname.vdi\" --sizebyte $((val*512)) --format VDI --variant Standard"  >> $config_script
+# Network - get MACs, print the first mac if many
+val=$(sed -nr "/\s*\*-network/,/serial:/s/\s*serial:\s*(..):(..):(..):(..):(..):(..)/\1\2\3\4\5\6/ p" lshw-report | awk '{print $1}')
 echo "VBoxManage modifyvm \"$VMname\" --macaddress1 $val" >> $config_script
 
 # If a DMI string is not set, the default value of VirtualBox is used. If the value is empty ignore it. You could try to set an empty you can string by using "<EMPTY>" but it might not do anything/
@@ -106,11 +106,11 @@ setParam "VBoxInternal/Devices/pcbios/0/Config/DmiBoardVersion"      str "Versio
 setParam "VBoxInternal/Devices/pcbios/0/Config/DmiBoardSerial"       str "Serial Number" dmi2
 setParam "VBoxInternal/Devices/pcbios/0/Config/DmiBoardAssetTag"     str "Asset Tag" dmi2
 setParam "VBoxInternal/Devices/pcbios/0/Config/DmiBoardLocInChass"   str "Location In Chassis" dmi2
-setParam "VBoxInternal/Devices/pcbios/0/Config/DmiBoardBoardType"    hex 14 dmi2u   # 14th byte in the header of the undecoded dmi in a decimal form" >> $config_script
+setParam "VBoxInternal/Devices/pcbios/0/Config/DmiBoardBoardType"    hex 14 dmi2.raw   # 14th byte in the header of the undecoded dmi in a decimal form" >> $config_script
 
 echo "# Chassis (system enclosure)    (dmi type 3)" >> $config_script
 setParam "VBoxInternal/Devices/pcbios/0/Config/DmiChassisVendor"     str "Manufacturer" dmi3
-setParam "VBoxInternal/Devices/pcbios/0/Config/DmiChassisType"       hex 6 dmi3u # 6th byte in the header of chassis dmi, in decimal" >> $config_script
+setParam "VBoxInternal/Devices/pcbios/0/Config/DmiChassisType"       hex 6 dmi3.raw # 6th byte in the header of chassis dmi, in decimal" >> $config_script
 setParam "VBoxInternal/Devices/pcbios/0/Config/DmiChassisVersion"    str "Version" dmi3
 setParam "VBoxInternal/Devices/pcbios/0/Config/DmiChassisSerial"     str "Serial Number" dmi3
 setParam "VBoxInternal/Devices/pcbios/0/Config/DmiChassisAssetTag"   str "Asset Tag" dmi3
@@ -125,7 +125,7 @@ setParam "VBoxInternal/Devices/pcbios/0/Config/DmiOEMVBoxRev"        str "String
 
 echo "# Custom ACPI tables" >> $config_script
 
-echo 'vmscfgdir=$(VBoxManage showvminfo $VMname | sed -n "s/Config file:\s*\(.*\)\/.*/\1/p")' >> $config_script
+echo 'vmscfgdir=$(VBoxManage showvminfo "'$VMname'" | sed -n "s/Config file:\s*\(.*\)\/.*/\1/p")' >> $config_script
 echo 'cp SLIC.bin "$vmscfgdir/SLIC.bin"' >> $config_script
 #setParam "VBoxInternal/Devices/acpi/0/Config/CustomTable"            val "$vmscfgdir/SLIC.bin"
 setParam "VBoxInternal/Devices/acpi/0/Config/CustomTable"            val "\$vmscfgdir/SLIC.bin"
@@ -145,7 +145,7 @@ setParam "VBoxInternal/Devices/ahci/0/Config/Port0/FirmwareRevision" str "Firmwa
 #setParam "VBoxInternal/Devices/ahci/0/Config/Port0/ATAPIRevision"
 
 echo "# ACPI (bios)" >> $config_script
-setParam "VBoxInternal/Devices/acpi/0/Config/AcpiOemId" str "OEM Identifier" bios
+setParam "VBoxInternal/Devices/acpi/0/Config/AcpiOemId" str "OEM Identifier" bios.report
 # other tables you can try (may not be very useful):
 #echo "VBoxManage  setextradata \"$VMname\" \"VBoxInternal/Devices/acpi/0/Config/DsdtFilePath\" \"%vmscfgdir%ACPI-DSDT.bin
 #echo "VBoxManage  setextradata \"$VMname\" \"VBoxInternal/Devices/acpi/0/Config/SsdtFilePath\" \"%vmscfgdir%ACPI-SSDT1.bin

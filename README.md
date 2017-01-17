@@ -25,11 +25,16 @@ HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\pciide
 Reboot, and go into your Bios to make sure that the drives are set to AHCI. If they are SCSI, change to AHCI. Neither VirtualBox, not VMWare have virtual SCSI interfaces.
 Continue booting. Windows will install the missing AHCI drivers on boot.
 
-Now, everthing you do below is optional, but it greatly simplifies the clonning:
+Next you will need to clone your original system's harddrive. If you have enough space on your host to accommodate the full size of your original's harddrive, you can proceed to the next section. If you want to have your clone consume less space on the host than the harddrive size of your original system, read on:
 
-1. Remove all extra partitions but one ("C:"). Make sure your only partition starts at the beginning of the disk. If you have a "System boot" partition, delete it and mark your "C:" partition as boot. Reboot to force Windows to move all its systems files to the "C:" partition..
-2. Run a cleanup tool and reduce your "C:" partition size to something that you can afford to have as a virtual disk. This will be the real size required on the hosts.
-3. If you don't have a full disk encryption, run a free space zeroing tool like sdelete. This way you will be able to use virtualbox's disk reduce feature, so the disk takes even less space on the host.
+1. Remove all extra partitions you do not need. If you have a "System boot" partition, use Windows' Disk Management MMC to delete it and mark your "C:" partition as "boot". Reboot your system to force Windows to move all its systems files to the "C:" partition.
+2. Reduce the size of your partition:
+	1. Run a cleanup tool and remove any junk you may have.
+    2. Disable hibernation to remove the hibernation file.
+    3. Reduce or make the swap equal to 0 to minimize (or remove) the swap file.
+    4. Use the Disk Management MMC to reduce your "C:" partition size to something that you can afford to have as a virtual disk. This will be the real size required on the host.
+2. Make sure your only partition starts at the beginning of the disk. If it does not, use Disk Management or some other partition editing tool (gparted) to move it to the beginning of the disk.
+3. If you don't have full disk encryption, run a free space zeroing tool like sdelete. This way you will be able to use virtualbox's disk reduce feature after it is converted to vdi, so the disk takes even less space on the host.
 
 ### Prep the target host
 1. Make a Linux based recovery OS. [SystemRescueCd](https://www.system-rescue-cd.org/SystemRescueCd_Homepage) is a decent option. Turning the SystemRescue ISO into a USB is a three step process: get the ISO, run `isohybrid` on it, flash with `dd if=hybredized.iso of=/dev/sd-`*usbdevice*
@@ -59,7 +64,5 @@ You can modify the script as necessary, or recreate it by running clone-physical
 If your target host is windows, convert bash to batch, or run bash under windows bash/cygwin.
 
 ## Troubleshooting
-
-The script is not tested thorougly, so if you run into issues, look through the code.
-
-To see what was set on the VM run `vboxmanage getextradata VMname enumerate` or just crack open the .vbox file. It's an XML.
+* The script is not tested thorougly, so if you run into issues, look through the code.
+* To see what was options were set on the VM run `vboxmanage getextradata VMname enumerate` or just crack open the .vbox file. It's an XML.
