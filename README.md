@@ -36,25 +36,25 @@ Next you will need to clone your original system's harddrive. If you have enough
 2. Make sure your only partition starts at the beginning of the disk. If it does not, use Disk Management or some other partition editing tool (gparted) to move it to the beginning of the disk.
 3. If you don't have full disk encryption, run a free space zeroing tool like sdelete. This way you will be able to use virtualbox's disk reduce feature after it is converted to vdi, so the disk takes even less space on the host.
 
-### Prep the target host
-1. Make a Linux based recovery OS. [SystemRescueCd](https://www.system-rescue-cd.org/SystemRescueCd_Homepage) is a decent option. Turning the SystemRescue ISO into a USB is a three step process: get the ISO, run `isohybrid` on it, flash with `dd if=hybredized.iso of=/dev/sd-`*usbdevice*
-2. Copy this script to a folder on the USB. Copy `biosdecode`, `dmidecode`, `lsusb`, if they are missing from your linux recovery USB distro, to the same folder. They are missing in SystemRescueCD).
-3. Find enough space on your host to accomodate the "C:" partition you will be cloning. It does not have to accomodate the whole disk of your original system, but should at the very least fit the partition you are copying. Make sure you can connect over the network to that space from the linux recovery. sshfs for Linux host or smbclient/smbfs for the Windows host should work.
+### Preparations on the host
+1. Make a Linux based recovery OS. [SystemRescueCd](https://www.system-rescue-cd.org/SystemRescueCd_Homepage) is a decent option. Turning the SystemRescue ISO into a USB is a four step process: get the ISO, mount it with "-o loop,exec", plug usb without mounting it, run `./usb_inst.sh` from the mounted iso
+2. Find enough space on your host to accomodate the "C:" partition you will be cloning. It does not have to accomodate the whole disk of your original system, but should at the very least fit the partition you are copying. Make sure you can connect over the network to that space from the linux recovery usb. sshfs for Linux host or smbclient/smbfs for the Windows host should work.
+3. Copy the code of this folder into the host folder you have mounted. Make sure to copy `biosdecode`, `dmidecode`, `lsusb` if they are missing from your linux recovery USB distro. They are missing in SystemRescueCD.
 
-### Take the snapshot
+### Take a snapshot of your source system
 1. Shut the system down and boot into a Linux recovery OS.
 2. Mount a remote folder via sshfs or smbfs to some folder, like /mnt/temp
-3. Take a snapshot of the disk. You only need to copy enough data to cover the size of your partition (i.e. no need to copy the empty space at the end of the disk). Make sure you are copying the full disk, not a partition (eg. /dev/sda not /dev/sda1). Here is how to copy a drive with a 50G partition:
-```
-dd if=/dev/sda of=/mnt/temp/fulldisk.dd bs=1M count=50000
-```
-4.  Take the fingerprint of the system by running
+3.  Take the fingerprint of the system by running
 ```
 clone-physical-to-virtual.sh systemname
 ```
 This will generate a bash script config_VMname.sh for creating the VM and setting the appropriate parameters
+4. Take a snapshot of the disk. clone-physical-to-virtual.sh will give you correct command for the first partition. You only need to copy enough data to cover the size of your partition (i.e. no need to copy the empty space at the end of the disk). Make sure you are copying the full disk, not a partition (eg. /dev/sda not /dev/sda1). Here is how to copy a drive with a 50G partition:
+```
+dd if=/dev/sda of=/mnt/temp/fulldisk.dd bs=1M count=50000
+```
 
-### Create the virtual clone
+### Create the virtual clone on your host
 1. Convert raw disk image to vdi:
 ```
 vboxmanage convertfromraw fulldisk.dd fulldisk.vdi
