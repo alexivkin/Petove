@@ -66,3 +66,31 @@ If your target host is windows, convert bash to batch, or run bash under windows
 ## Troubleshooting
 * The script is not tested thorougly, so if you run into issues, look through the code.
 * To see what was options were set on the VM run `vboxmanage getextradata VMname enumerate` or just crack open the .vbox file. It's an XML.
+
+
+## Notes on re-activation
+
+When comparing physical to virtual some differences will show up. They are not significant to cause windows re-activation, but they might cause Office 2013 to reactivate.
+Windows does (re)install a bunch of drivers, including cpu, usb devices etc. and that probably **triggered office reactivation warning.** Note though that this does not happen for all versions of office distributions. Some seems to be fine and do not need to be reactivated.
+The VM had the same number of processors, the same ram and the same exact disk size (to byte) BUT when looking at the Windows Device manager the following differences show up:
+
+Physical/Virtual:
+* Disk drives: **SCSI** disk device/**ATA** Device
+* Display Adapters - Intel(R) HD Graphics Family/VirtualBox Graphics Adapter
+* HID - four hid devices/one USB hid
+* IDA ATA/ATAPI - Intel(R) Chipset Family SATA AHCI Controller/Intel(R) ICH8M SATA AHCI Controller + ATA Channel 0, ATA Channel 1
+* Keyboards - Standard 101/102 Key or Microsoft Natural/Standard PS/2 Keyboard
+* Mice - Synaptics SMBus TouchPad/HID-compliant mouse, Micorsoft PS/2 mouse
+* Monitors - generic PnP monitor/generic **Non-**Pnp monitor
+* Netwirk adaptes - Intel Dual Band Wireless AC + Intel Ethernet Connection/Intel Pro/1000 MT Desktop Adapter
+* CPU - 4 i7-4600U @ 2.10G — **although this was added into VBoxInternal/Devices/pcbios/0/Config/DmiProcVersion it did not come through the end system, instead the real processor type was exposed**/2 i7-4790K @ 4G
+* Sound - IDT High Dev Audio CODEC/High Definition Audio Device
+* System devices - **Many** differences
+* USB controllers - Generic Hub+Intel UBM EHC, Intel USB3 XHC,etc/USB Root hub and standart stuff
+
+Only present in the Physical machine:
+* Imaging Devices - Webcam
+* Security devices - TPM 1.2
+
+Only present on the VM clone:
+* CD-Rom
