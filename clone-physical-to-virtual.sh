@@ -10,6 +10,7 @@ fi
 
 if [[ $1 == -f || ! -f dmi0.report ]]; then
     echo Capturing current hardware configuration...
+    nvme=0
     PATH="./:$PATH" # use local commands if they are available
     dmidecode -t0 > dmi0.report
     dmidecode -t1 > dmi1.report
@@ -20,13 +21,19 @@ if [[ $1 == -f || ! -f dmi0.report ]]; then
     dmidecode -t4  > dmi4.report
     dmidecode -t11  > dmi11.report
     dmidecode -t11 -u > dmi11.raw
-    hdparm -I /dev/sda > hdparm-sda.report 2>/dev/null # (capital i, not L)
+    # dump bios
     dd if=/sys/firmware/acpi/tables/SLIC of=SLIC.bin 2>/dev/null # (might want to get all others from the same acpi/tables table too)
-    dd if=/sys/firmware/acpi/tables/DSDT of=DSDT_BIN 2>/dev/null # can also be done wiht  acpidump -t DSDT -o DSDT_BIN -b
+    dd if=/sys/firmware/acpi/tables/DSDT of=DSDT.bin 2>/dev/null # can also be done wiht  acpidump -t DSDT -o DSDT_BIN -b
     # lshw number of processor cores, ram, same (total) disk space and a network card, same video card memory
     lshw > lshw.report
-    # disk partitions
+    # devices and partitions
     fdisk -l > fdisk.report
+    # check for NVMe
+    if grep -q "/dev/nvme" fdisk.report; then
+        nvme id-ctrl /dev/nvme0n1 >  nvme-nvme0n1.report
+    else
+        hdparm -I /dev/sda > hdparm-sda.report 2>/dev/null # (capital i, not L)
+    fi
     # the following dumps are not strictly necessary, just in case
     dmidecode > dmi-all.report
     dmidecode --dump-bin dmi.bin
@@ -73,11 +80,11 @@ echo "set -euo pipefail" >> $config_script
 
 # Sanity check
 echo "if [[ ! -f \"$VMname.vdi\" ]]; then" >> $config_script
-echo "  echo No disk clone \"$VMname.vdi\" found. Make sure to cloned the source with dd and convert with vboxmanage convertfromraw"  >> $config_script
+echo "  echo No disk clone \"$VMname.vdi\" found. Make sure to cloned the source with dd and convert with \"vboxmanage convertfromraw\"."  >> $config_script
 # for disk size use LBA48 multiplied by 512
-val=$(sed -nr "s/\s*LBA48  user addressable sectors:\s*(.*)/\1/p" hdparm-sda.report)
-echo "  echo To create an empty disk of the same size as the source run"   >> $config_script
-echo "  echo VBoxManage createmedium disk --filename \"$VMname.vdi\" --sizebyte $((val*512)) --format VDI --variant Standard"  >> $config_script
+#val=$(sed -nr "s/\s*LBA48  user addressable sectors:\s*(.*)/\1/p" hdparm-sda.report)
+#echo "  echo To create an empty disk of the same size as the source run"   >> $config_script
+#echo "  echo VBoxManage createmedium disk --filename \"$VMname.vdi\" --sizebyte $((val*512)) --format VDI --variant Standard"  >> $config_script
 echo -e "  exit\nfi"   >> $config_script
 
 # Create a VM with the same number of processors, same ram, same (total) disk space and a network card, same video card memory
@@ -162,15 +169,23 @@ echo 'if [[ ! -f "$vmscfgdir/SLIC.bin" ]]; then cp SLIC.bin "$vmscfgdir/SLIC.bin
 #setParam "VBoxInternal/Devices/acpi/0/Config/CustomTable"            val "$vmscfgdir/SLIC.bin"
 setParam "VBoxInternal/Devices/acpi/0/Config/CustomTable"            val "\$vmscfgdir/SLIC.bin"
 
-echo "# hdd - sata " >> $config_script
-setParam "VBoxInternal/Devices/ahci/0/Config/Port0/ModelNumber"      str "Model Number" hdparm-sda.report
-setParam "VBoxInternal/Devices/ahci/0/Config/Port0/SerialNumber"     str "Serial Number" hdparm-sda.report
-setParam "VBoxInternal/Devices/ahci/0/Config/Port0/FirmwareRevision" str "Firmware Revision" hdparm-sda.report
-
-# to use IDE  use the following variables instead:
-#setParam "VBoxInternal/Devices/piix3ide/0/Config/PrimaryMaster/SerialNumber"
-#setParam "VBoxInternal/Devices/piix3ide/0/Config/PrimaryMaster/FirmwareRevision"
-#setParam "VBoxInternal/Devices/piix3ide/0/Config/PrimaryMaster/ModelNumber"
+if [[ -f hdparm-sda.report ]]; then
+    # to use IDE  use the following variables instead:
+    #setParam "VBoxInternal/Devices/piix3ide/0/Config/PrimaryMaster/SerialNumber"
+    #setParam "VBoxInternal/Devices/piix3ide/0/Config/PrimaryMaster/FirmwareRevision"
+    #setParam "VBoxInternal/Devices/piix3ide/0/Config/PrimaryMaster/ModelNumber"
+    echo "# hdd - sata " >> $config_script
+    setParam "VBoxInternal/Devices/ahci/0/Config/Port0/ModelNumber"      str "Model Number" hdparm-sda.report
+    setParam "VBoxInternal/Devices/ahci/0/Config/Port0/SerialNumber"     str "Serial Number" hdparm-sda.report
+    setParam "VBoxInternal/Devices/ahci/0/Config/Port0/FirmwareRevision" str "Firmware Revision" hdparm-sda.report
+elif [[ -f nvme-nvme0n1.report ]]; then
+    echo "# hdd - nvme from sata" >> $config_script
+    setParam "VBoxInternal/Devices/ahci/0/Config/Port0/ModelNumber"      str "mn" nvme-nvme0n1.report
+    setParam "VBoxInternal/Devices/ahci/0/Config/Port0/SerialNumber"     str "sn" nvme-nvme0n1.report
+    setParam "VBoxInternal/Devices/ahci/0/Config/Port0/FirmwareRevision" str "fr" nvme-nvme0n1.report
+else
+    echo WARNING: No disk configuration found
+fi
 
 # to add cdrom from lshw (grep for cdrom)
 #setParam "VBoxInternal/Devices/ahci/0/Config/Port0/ATAPIVendorId"
@@ -193,8 +208,16 @@ echo "#VBoxManage setextradata \"$VMname\" \"VBoxInternal/PDM/HaltOnReset\" 1" >
 echo "#VBoxManage setextradata \"$VMname\" CustomVideoMode1 1600x900x32" >> $config_script
 echo "#VBoxManage modifyvm \"$VMname\" --bioslogoimagepath  \"\$vmscfgdir/splash.bmp\"" >> $config_script
 chmod u+x $config_script
+echo Done.
 
-echo Now you need to clone the disk itself:
-val=$(grep /dev/sda1 fdisk.report | awk '{print $4}')
-# 512 is the default logical sector size, plus 1 for the rounding
-echo dd if=/dev/sda of=\"$VMname.raw\" bs=1000000 count=$((val*512/1000000+1))
+if [[ -f hdparm-sda.report ]]; then
+    echo Now you need to clone the disk itself up to the end of the first partition:
+    val=$(grep /dev/sda1 fdisk.report | awk '{print $4}')
+    # 512 is the default logical sector size, plus 1 for the rounding
+    echo dd if=/dev/sda of=\"$VMname.raw\" bs=1000000 count=$((val*512/1000000+1))
+elif [[ -f nvme-nvme0n1.report ]]; then
+    echo Now you need to clone the disk itself up to the end of the third partition:
+    val=$(grep "/dev/nvme0n1p3" fdisk.report | awk '{print $4}')
+    # 512 is the default logical sector size, plus 1 for the rounding
+    echo dd if=/dev/nvme0n1 of=\"$VMname.raw\" bs=1000000 count=$((val*512/1000000+1))
+fi
