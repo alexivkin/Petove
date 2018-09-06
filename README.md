@@ -14,7 +14,7 @@ You will need to clone the source disk with `dd` or `disk2vhd` and then convert 
 ## How to use it
 
 ### Prep the source system
-If your orignal system is Windows, make sure that AHCI drivers are enabled. Open regedit and set start to 0 under
+If your orignal system is Windows, make sure that AHCI drivers are installed and enabled, since VirtualBox requires them. Open regedit and set `start` to `0` under
 ````
 HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\atapi
 HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\iaStor
@@ -22,28 +22,43 @@ HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\iaStorV
 HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\msahci
 HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\pciide
 ````
-Reboot, and go into your BIOS/EFI to make sure that the drives are set to AHCI. If they are SCSI, change to AHCI. Neither VirtualBox, not VMWare have virtual SCSI interfaces.
+Reboot, and go into your BIOS/EFI to make sure that the SATA mode is set to AHCI. Neither VirtualBox, not VMWare have virtual SCSI or RAID/Rapid Recovery interfaces.
 Continue booting. Windows will install the missing AHCI drivers on boot.
 
+If Windows fails to boot with the AHCI drivers try installing the drivers inside of the safe mode:
+
+1. Change the BIOS/UEFI setting back to what it was before
+2. Boot into Windows. Start cmd as an administrator and instruct windows to boot into the safe next time: `bcdedit /set {current} safeboot minimal`
+3. Reboot into BIOS/UEFI and set SATA to AHCI. Reboot into Windows. You will now be in the safe mode with the AHCI drivers installed
+4. Start cmd as an administrator and remove the safeboot parameter so the next time Windows loads normally `bcdedit /deletevalue {current} safeboot`
+
 #### Preparing the disk
-Next you will need to clone your original system's hard drive. If you have **full disk encryption** enabled (bitlocker, symantec and such), and you want to remove it from the cloned guest you will need to take a live snapshot with [disk2vhd](https://docs.microsoft.com/en-us/sysinternals/downloads/disk2vhd) and then convert the VHD into VDI with "vboxmanage convert". This would avoid double-encryption in case your host already has full disk encryption.
+Next you will need to clone your original system's hard drive. If you have **full disk encryption** enabled (bitlocker, symantec and such), I recommend that you remove it first, since you **should** already be using full disk encryption on your host. This will also allow you to grow and shrink virtual disk using the hypervisor as it will recognize unencrypted blank space as blank space.
 
-If you have enough space on your host to accommodate the full size of your original hard drive, you can proceed to the next section. If you want to have your clone consume less space on the host than the hard drive size of your original system, clean it as follows:
+The easiest way to remove windows full disk encryption **of any kind** is to take a live snapshot with [disk2vhd](https://docs.microsoft.com/en-us/sysinternals/downloads/disk2vhd) and then convert the VHD into VDI with "vboxmanage convert". I'll not go into details here - look up posts on my [blog](https://securedmind.com) for more info.
 
-1. Remove all extra partitions you do not need. If you have a "System boot" partition, use Windows' Disk Management MMC to delete it and mark your "C:" partition as "boot". Reboot your system to force Windows to move all its systems files to the "C:" partition.
+Most likely you will also want to shrink the main partition. so that your clone consumes less space on the host than the hard drive size of your original system. To do it clean it as follows:
+
+1. Remove all the extra partitions you do not need. If you have a "System boot" partition, use Windows' Disk Management MMC to delete it and mark your "C:" partition as "boot". Reboot your system to force Windows to move all its systems files to the "C:" partition.
 2. Reduce the size of your partition:
-	1. Run a cleanup tool and remove any junk you may have.
+    1. Run a cleanup tool like bleachbit and remove any junk you may have.
     2. Disable hibernation to remove the hibernation file.
     3. Reduce or make the swap equal to 0 to minimize (or remove) the swap file.
-    4. Use the Disk Management MMC to reduce your "C:" partition size to something that you can afford to have as a virtual disk. This will be the real size required on the host.
-2. Make sure your only partition starts at the beginning of the disk. If it does not, use Disk Management or some other partition editing tool (gparted) to move it to the beginning of the disk.
-3. If you don't have full disk encryption, run a free space zeroing tool like sdelete. This way you will be able to use virtualbox's disk reduce feature after it is converted to vdi, so the disk takes even less space on the host.
+    4. Use the Disk Management MMC to reduce your "C:" partition size to something that you can afford to have as a virtual disk. If it does not let you reduce the size to what you want, do a defragmentation first.
+2. Make sure that your only partition starts at the beginning of the disk. If it does not, use Disk Management or some other partition editing tool (gparted) to move it to the beginning of the disk.
+3. If you turned off full disk encryption, run a free space zeroing tool like sdelete or bleachbit's free space clean. This way you will be able to use virtualbox's disk reduce feature after it is converted to vdi, so the disk takes even less space on the host.
 
 ### Preparations on the host
-1. Make a Linux based recovery OS. [SystemRescueCd](https://www.system-rescue-cd.org/SystemRescueCd_Homepage) is a decent option. Turning the SystemRescue ISO into a USB is a four step process: get the ISO, mount it with "-o loop,exec", plug usb without mounting it, run `./usb_inst.sh` from the mounted iso
-2. Find enough space on your host where you will be saving the disk to, to accomodate the "C:" partition you will be cloning. It does not have to accomodate the whole disk of your original system, but should at the very least fit the partition you are copying. Make sure you can connect over the network to that space from the linux recovery usb. sshfs for Linux host or smbclient/smbfs for the Windows host should work.
-3. Copy the code of this folder into the host folder you have mounted. If you are running the latest SystemRescueCD (5.1.1+) you do not need `biosdecode`, `dmidecode`, `lsusb`, while older versions of SystemRescueCD did not have it. You will need `nvme` if you have an SSD attach to PCI Express (NVMe) (your disk is /dev/nvme...). If you get "not found" message when running the script you would need 32 bit versions of the executables. Provided versions are 64 bit and even though your kernel may be 64 bit, systemrescue is running in a 32 bit userland.
+1. Make a Linux based recovery OS. [SystemRescueCd](https://www.system-rescue-cd.org/SystemRescueCd_Homepage) is a decent option. Turning the SystemRescue ISO into a USB is a four step process:
+    1. Get the ISO, mount it with "-o loop,exec"
+    2. Plug the USB without mounting it
+    3. Run `./usb_inst.sh` from the mounted iso
+2. Copy the code from this repository to a folder on the Linux bootable recovery USB *
+3. Find enough space on your host where you will be saving the disk to, to accomodate the "C:" partition you will be cloning. You dont need to fit the full disk of your original system, just the partition.
+4. If your host is remote, map the free space to your guest with sshfs for Linux host or smbclient/smbfs for the Windows host.
 
+* If you are running the latest SystemRescueCD (5.1.1+) you do not need `biosdecode`, `dmidecode`, `lsusb`. You will need `nvme` if you have an SSD attach to PCI Express (NVMe) (your disk is /dev/nvme...).
+Also note that the executables here are 32 bit, because SystemRescueCD is running in a 32 bit userland even on a 64bit kernel on a 64bit system
 
 ### Take a snapshot of your source system
 1. Shut the system down and boot into a Linux recovery OS.
@@ -53,7 +68,7 @@ If you have enough space on your host to accommodate the full size of your origi
 clone-physical-to-virtual.sh systemname
 ```
 This will generate a bash script config_VMname.sh for creating the VM and setting the appropriate parameters
-4. Take a snapshot of the disk. clone-physical-to-virtual.sh will give you correct command for the first partition. You only need to copy enough data to cover the size of your partition (i.e. no need to copy the empty space at the end of the disk). Make sure you are copying the full disk, not a partition (eg. /dev/sda not /dev/sda1). Here is how to copy a drive with a 50G partition:
+4. Take a snapshot of the disk. clone-physical-to-virtual.sh will give you correct command for the first partition. You only need to copy enough data to cover the size of your partition (i.e. no need to copy the empty space at the end of the disk). Make sure you are copying the full disk, not a partition (eg. /dev/sda not /dev/sda1), so you get the partition table. Here is how to copy a drive with a 50G partition:
 ```
 dd if=/dev/sda of=/mnt/temp/fulldisk.dd bs=1M count=50000
 ```
