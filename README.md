@@ -35,7 +35,8 @@ If Windows fails to boot with the AHCI drivers try installing the drivers inside
 #### Preparing the disk
 Next you will need to clone your original system's hard drive. If you have **full disk encryption** enabled (bitlocker, symantec and such), I recommend that you remove it first, since you **should** already be using full disk encryption on your host. This will also allow you to grow and shrink virtual disk using the hypervisor as it will recognize unencrypted blank space as blank space.
 
-The easiest way to remove windows full disk encryption **of any kind** is to take a live snapshot with [disk2vhd](https://docs.microsoft.com/en-us/sysinternals/downloads/disk2vhd) and then convert the VHD into VDI with "vboxmanage convert". I'll not go into details here - look up posts on my [blog](https://securedmind.com) for more info.
+The easiest way to remove windows full disk encryption **of any kind** is to take a live snapshot with [disk2vhd](https://docs.microsoft.com/en-us/sysinternals/downloads/disk2vhd) and then convert the VHD into VDI with "VBoxManage convert". I'll not go into details here - look up posts on my [blog](https://securedmind.com) for more info.
+Another advantage of disk2vhd is that it only copies used blocks, so the resulting VHD file is compact even before converting to VDI.
 
 Most likely you will also want to shrink the main partition. so that your clone consumes less space on the host than the hard drive size of your original system. To do it clean it as follows:
 
@@ -72,7 +73,7 @@ This will generate a bash script config_VMname.sh for creating the VM and settin
 ```
 dd if=/dev/sda of=/mnt/temp/fulldisk.dd bs=1M count=50000
 ```
-Alternatively you can do the data cloning wiht disk2vhd
+(Skip this step if you already took the disk snapshot with disk2vhd)
 
 ### Create the virtual clone on your host
 1. Convert raw disk image to vdi:
@@ -101,9 +102,9 @@ If your target host is windows, convert bash to batch, or run bash under windows
 When comparing physical to virtual some differences will show up. They are not significant to cause windows re-activation, but they might cause MS Office to reactivate.
 Windows does reinstall a bunch of drivers when it detects virtual devices, including cpu, usb devices etc. and that might triggered office reactivation warning. Note though that this does not happen for all versions of office distributions. Some seems to be fine and do not need to be reactivated. Looking at the Windows Device manager you might see the following differences:
 
-* Physical/Virtual: Disk drives, Display Adapters, IDA ATA/ATAPI, Keyboards, Mice, Monitors, Network adapters, CPU, Sound, System devices, USB controllers
+* Physical/Virtual: Disk drives, Display Adapters, IDE ATA/ATAPI, Keyboards, Mice, Monitors, Network adapters, CPU, Sound, System devices, USB controllers
 * Not in the virtual clone: Imaging Devices (Webcam), Security devices (TPM)
-* Not on the original: CD-Rom (used for the vbox guest tools, you can remove it after the tools are installed)
+* Not on the original: CD-ROM (used for the vbox guest tools, you can remove it after the tools are installed)
 
 To see what was options were set on the VM run `vboxmanage getextradata VMname enumerate` or just crack open the .vbox file. It's an XML.
 
