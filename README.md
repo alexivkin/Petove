@@ -25,7 +25,6 @@ HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\pciide
 Reboot, and go into your BIOS/EFI to make sure that the SATA mode is set to AHCI. Neither VirtualBox, not VMWare have virtual SCSI or RAID/Rapid Recovery interfaces.
 Continue booting. Windows will install the missing AHCI drivers on boot.
 
-<<<<<<< HEAD
 If Windows fails to boot with the AHCI drivers try installing the drivers inside of the safe mode:
 
 1. Change the BIOS/UEFI setting back to what it was before
@@ -37,12 +36,8 @@ If Windows fails to boot with the AHCI drivers try installing the drivers inside
 Next you will need to clone your original system's hard drive. If you have **full disk encryption** enabled (bitlocker, symantec and such), I recommend that you remove it first, since you **should** already be using full disk encryption on your host. This will also allow you to grow and shrink virtual disk using the hypervisor as it will recognize unencrypted blank space as blank space.
 
 The easiest way to remove windows full disk encryption **of any kind** is to take a live snapshot with [disk2vhd](https://docs.microsoft.com/en-us/sysinternals/downloads/disk2vhd) and then convert the VHD into VDI with "vboxmanage convert". I'll not go into details here - look up posts on my [blog](https://securedmind.com) for more info.
-=======
-If Windows doesn't boot, revert BIOS back to the previous mode and follow [these steps](https://triplescomputers.com/blog/uncategorized/solution-switch-windows-10-from-raidide-to-ahci-operation/)
 
-#### Preparing the disk
-Next you will need to clone your original system's hard drive. If you have **full disk encryption** enabled (bitlocker, symantec and such), and you want to remove it from the cloned guest you will need to take a live snapshot with [disk2vhd](https://docs.microsoft.com/en-us/sysinternals/downloads/disk2vhd) and then convert the VHD into VDI with "VBoxManage convert". This would avoid double-encryption in case your host already has full disk encryption. Another advantage of disk2vhd is that it only copies used blocks, so the resulting VHD file is compact even before converting to VDI.
->>>>>>> 9a6b1c4c554df79aea096084066934a1e9e805aa
+Another advantage of disk2vhd is that it only copies used blocks, so the resulting VHD file is compact even before converting to VDI.
 
 Most likely you will also want to shrink the main partition. so that your clone consumes less space on the host than the hard drive size of your original system. To do it clean it as follows:
 
